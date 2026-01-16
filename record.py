@@ -129,6 +129,7 @@ while episode_idx < NUM_EPISODES and not events["stop_recording"]:
 
 # Clean up
 log_say("Stop recording")
+dataset.meta._flush_metadata_buffer()
 robot.disconnect()
 teleop.disconnect()
 dataset.push_to_hub()
