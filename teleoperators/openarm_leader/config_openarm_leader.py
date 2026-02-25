@@ -30,6 +30,8 @@ class OpenArmConfig(TeleoperatorConfig):
     
     enable_fd: bool
     
+    model_path: str
+    
     motor_types: list[MotorType] = field(default_factory=lambda: [
         MotorType.DM8009, MotorType.DM8009,
         MotorType.DM4340, MotorType.DM4340,

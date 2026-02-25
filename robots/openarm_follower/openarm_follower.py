@@ -145,10 +145,10 @@ class OpenArmFollower(Robot):
         start = time.perf_counter()
         
         self.right_arm.refresh_all()
-        self.right_arm.recv_all()
-        
         self.left_arm.refresh_all()
-        self.left_arm.recv_all()
+        for _ in range(8):
+            self.right_arm.recv_all(250)
+            self.left_arm.recv_all(250)
         
         obs_dict = {}
         
@@ -206,7 +206,7 @@ class OpenArmFollower(Robot):
             oa.MITParam(kp=self.KPs[6], kd=self.KDs[6], q=action['RJ7.pos'], dq=0.0, tau=tau[15])
         ])
         self.right_arm.get_gripper().mit_control_all([
-            oa.MITParam(kp=self.KPs[7], kd=self.KDs[7], q=action['RJ8.pos'], dq=0.0, tau=tau[16]),
+            oa.MITParam(kp=self.KPs[7], kd=self.KDs[7], q=action['RJ8.pos'] + 0.08, dq=0.0, tau=tau[16]),
         ])
         
         self.left_arm.get_arm().mit_control_all([
@@ -219,7 +219,7 @@ class OpenArmFollower(Robot):
             oa.MITParam(kp=self.KPs[6], kd=self.KDs[6], q=action['LJ7.pos'], dq=0.0, tau=tau[6])
         ])
         self.left_arm.get_gripper().mit_control_all([
-            oa.MITParam(kp=self.KPs[7], kd=self.KDs[7], q=action['LJ8.pos'], dq=0.0, tau=tau[7]),
+            oa.MITParam(kp=self.KPs[7], kd=self.KDs[7], q=action['LJ8.pos'] + 0.08, dq=0.0, tau=tau[7]),
         ])
         
         return action

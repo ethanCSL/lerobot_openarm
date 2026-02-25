@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
+import pinocchio as pin
 import logging
 import time
 import openarm_can as oa
@@ -44,6 +46,10 @@ class OpenArmLeader(Teleoperator):
         self.left_arm  = oa.OpenArm(self.config.left_port,  self.config.enable_fd)
 
         self._is_connected = False
+        
+        self.model = pin.buildModelFromUrdf(self.config.model_path)
+        self.data = self.model.createData()
+        # print("show model.nq: ", self.model.nq)
 
     @property
     def action_features(self) -> dict[str, type]:
@@ -106,13 +112,13 @@ class OpenArmLeader(Teleoperator):
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
 
-        start = time.perf_counter()
+        start = time.time()
         
         self.right_arm.refresh_all()
-        self.right_arm.recv_all()
-        
         self.left_arm.refresh_all()
-        self.left_arm.recv_all()
+        for _ in range(8):
+            self.right_arm.recv_all(250)
+            self.left_arm.recv_all(250)
 
         action = {}
         for i, motor in enumerate(self.right_arm.get_arm().get_motors()):
@@ -123,7 +129,44 @@ class OpenArmLeader(Teleoperator):
             action[f'LJ{i+1}.pos'] = motor.get_position()
         action['LJ8.pos'] = self.left_arm.get_gripper().get_motor().get_position()
         
-        dt_ms = (time.perf_counter() - start) * 1e3
+        
+        q = np.array([
+            action['LJ1.pos'], action['LJ2.pos'], action['LJ3.pos'], action['LJ4.pos'],
+            action['LJ5.pos'], action['LJ6.pos'], action['LJ7.pos'], -action['LJ8.pos'] / 25.0, -action['LJ8.pos'] / 25.0,
+            action['RJ1.pos'], action['RJ2.pos'], action['RJ3.pos'], action['RJ4.pos'],
+            action['RJ5.pos'], action['RJ6.pos'], action['RJ7.pos'], -action['RJ8.pos'] / 25.0, -action['RJ8.pos'] / 25.0,
+        ], np.float32)
+        tau: np.ndarray = pin.computeGeneralizedGravity(self.model, self.data, q) * 0.87
+        self.right_arm.get_arm().mit_control_all([
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[9]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[10]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[11]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[12]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[13]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[14]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[15] * 0.5)
+        ])
+        self.right_arm.get_gripper().mit_control_all([
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=0.0),
+        ])
+        
+        self.left_arm.get_arm().mit_control_all([
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[0]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[1]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[2]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[3]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[4]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[5]),
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=tau[6] * 0.5)
+        ])
+        self.left_arm.get_gripper().mit_control_all([
+            oa.MITParam(kp=0.0, kd=0.0, q=0.0, dq=0.0, tau=0.0),
+        ])
+        for _ in range(8):
+            self.right_arm.recv_all(250)
+            self.left_arm.recv_all(250)
+        
+        dt_ms = (time.time() - start) * 1e3
         logger.debug(f"{self} read action: {dt_ms:.1f}ms")
         return action
 
@@ -139,7 +182,8 @@ class OpenArmLeader(Teleoperator):
         time.sleep(0.1)
         self.right_arm.disable_all()
         self.left_arm.disable_all()
-        self.right_arm.recv_all(610)
-        self.left_arm.recv_all(610)
+        time.sleep(2 * 1e-3)
+        self.right_arm.recv_all()
+        self.left_arm.recv_all()
 
         logger.info(f"{self} disconnected.")
