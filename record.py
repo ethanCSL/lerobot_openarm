@@ -34,7 +34,7 @@ from lerobot.processor import make_default_processors
 
 
 # change this to your parameters
-NUM_EPISODES = 1
+NUM_EPISODES = 10
 FPS = 30
 EPISODE_TIME_SEC = 999
 RESET_TIME_SEC = 5
@@ -53,7 +53,7 @@ robot_config = OpenArmFollowerConfig(
     
     enable_fd = True,
     
-    model_path='/home/csl/lerobot_openarm/model/openarm_description.urdf',
+    model_path='/home/csl/lerobot_openarm/model/openarm_description_leader.urdf',
     
     cameras=camera_config 
 )
@@ -142,4 +142,4 @@ log_say("Stop recording")
 dataset.finalize()
 robot.disconnect()
 teleop.disconnect()
-dataset.push_to_hub()
+# dataset.push_to_hub()
